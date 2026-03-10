@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chess Game</title>
   <style>
     * {
@@ -12,19 +13,21 @@
       font-family: Arial, sans-serif;
     }
 
- canvas.emscripten {
-  width: min(80vh,80vw);
-  height: min(80vh,80vw);
+canvas.emscripten {
+  width: 80vw;
+  height: 80vw;
+  max-width: 80vh;
+  max-height: 80vh;
 }
 
 
-    .canvas.emscripten_border{
-      border: 0 none;
-      background-color: black;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
+.emscripten_border{
+  border: 0 none;
+  background-color: black;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 
     /* 整体左右布局 */
     .game-wrapper {
@@ -118,10 +121,14 @@
     var canvasElement = document.getElementById('canvas');
     const ctx = canvasElement.getContext("2d");
 
-const size = Math.min(window.innerHeight, window.innerWidth) * 0.8;
+function resizeCanvas() {
+  const size = Math.min(window.innerHeight, window.innerWidth) * 0.8;
+  canvasElement.width = size;
+  canvasElement.height = size;
+}
 
-canvasElement.width = size;
-canvasElement.height = size;
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
 
     var outputElement = document.getElementById('output');
     if (outputElement) outputElement.value = '';
@@ -394,6 +401,45 @@ Module.onRuntimeInitialized = () => {
     gameStarted = false;
     canvasElement.style.pointerEvents = "none";
 };
+
+canvasElement.addEventListener("touchstart", (e) => {
+
+  if (!gameStarted) return;
+
+  const touch = e.touches[0];
+  const rect = canvasElement.getBoundingClientRect();
+  const cellSize = rect.width / 8;
+
+  const col = Math.floor((touch.clientX - rect.left) / cellSize);
+  const row = Math.floor((touch.clientY - rect.top) / cellSize);
+
+  Module.ccall("onCellClick", null, ["number","number"], [row,col]);
+
+  if(selectedCell && selectedCell.row === row && selectedCell.col === col){
+      selectedCell = null;
+      legalMoves = [];
+  }else{
+      selectedCell = {row, col};
+  }
+
+  const moveStr = Module.ccall(
+      "getLegalMoves",
+      "string",
+      ["number","number"],
+      [row,col]
+  );
+
+  if(moveStr.length > 0){
+      legalMoves = moveStr.split(";").map(p=>{
+          const [r,c] = p.split(",");
+          return {row:parseInt(r),col:parseInt(c)};
+      });
+  } else {
+      legalMoves = [];
+  }
+
+  updateBoard();
+});
 
   </script>
 
