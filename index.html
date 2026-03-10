@@ -223,6 +223,9 @@ if(!success){
   return;
 }
 
+updateBoard();
+checkGameEnd();
+
 // 如果再次点击同一格 → 取消选择
 if(selectedCell && selectedCell.row === row && selectedCell.col === col){
     selectedCell = null;
@@ -378,6 +381,28 @@ function updateBoard(){
   drawBoard(board);
   drawPieces(board);
 }
+
+function checkGameEnd(){
+
+  const result = Module.ccall(
+    "getGameResult",
+    "number",
+    [],
+    []
+  );
+
+  if(result === 1){
+    alert("Checkmate! White wins!");
+    window.location.reload();
+  }
+
+  if(result === 2){
+    alert("Checkmate! Black wins!");
+    window.location.reload();
+  }
+
+}
+
 Module.onRuntimeInitialized = () => {
     gameStarted = false;
     canvasElement.style.pointerEvents = "none";
