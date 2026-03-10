@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Chess Game</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+ canvas.emscripten {
+  width: min(80vh,80vw);
+  height: min(80vh,80vw);
+}
+
+
+    .canvas.emscripten_border{
+      border: 0 none;
+      background-color: black;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* 整体左右布局 */
+    .game-wrapper {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* 棋盘区域 3/4 */
+    .chess-area {
+      width: 75%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a1a;
+    }
+
+    /* 按钮区域 1/4 */
+    .control-area {
+      width: 25%;
+      height: 100%;
+      background: #2d2d2d;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    /* 按钮样式 */
+    .game-btn {
+      width: 80%;
+      padding: 15px 0;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+      transition: 0.2s;
+    }
+    .game-btn:hover {
+      background: #0056b3;
+    }
+
+    /* 棋盘必须保留这个样式，否则坐标会错 */
+    canvas.emscripten {
+      border: 0 none;
+      background-color: black;
+    }
+
+    /* 隐藏原来没用的东西 */
+    #emscripten_logo, .spinner, #status, #controls, #progress, .emscripten_border {
+      display: none !important;
+    }
+
+    #output {
+      display: none; /* 不想看控制台可以隐藏，要显示删掉这行 */
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 整体布局 -->
+  <div class="game-wrapper">
+
+    <!-- 左边：棋盘 3/4 -->
+    <div class="chess-area">
+      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    </div>
+
+    <!-- 右边：按钮 1/4 -->
+    <div class="control-area">
+      <button class="game-btn" id="startBtn">开始游戏</button>
+      <button class="game-btn" id="restartBtn">重新开始</button>
+      <button class="game-btn" id="endBtn">结束游戏</button>
+      <button class="game-btn" id="exitBtn">退出</button>
+      <button class="game-btn" id="acceptDrawBtn">接受和棋</button>
+      <button class="game-btn" id="rejectDrawBtn">拒绝和棋</button>
+    </div>
+
+  </div>
+
+  <textarea id="output" rows="8"></textarea>
+
+  <script type='text/javascript'>
+    var canvasElement = document.getElementById('canvas');
+    const ctx = canvasElement.getContext("2d");
+
+const size = Math.min(window.innerHeight, window.innerWidth) * 0.8;
+
+canvasElement.width = size;
+canvasElement.height = size;
+
+    var outputElement = document.getElementById('output');
+    if (outputElement) outputElement.value = '';
+
+    canvasElement.addEventListener('webglcontextlost', (e) => {
+      alert('WebGL context lost. Reload page.');
+      e.preventDefault();
+    }, false);
+
+    var Module = {
+      print(...args) {
+        console.log(...args);
+        if (outputElement) {
+          var text = args.join(' ');
+          outputElement.value += text + "\n";
+          outputElement.scrollTop = outputElement.scrollHeight;
+        }
+      },
+      canvas: canvasElement,
+      setStatus: () => {},
+      monitorRunDependencies: () => {}
+    };
+
+    // ====================== 你的按钮逻辑 ======================
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const endBtn = document.getElementById('endBtn');
+    const exitBtn = document.getElementById('exitBtn');
+
+    let gameStarted = false;
+    let selectedCell = null;
+    let legalMoves = [];
+    
+startBtn.onclick = () => {
+
+  if(gameStarted){
+      alert("游戏已经开始");
+      return;
+  }
+
+  Module.ccall("initGame");
+
+  selectedCell = null;
+  legalMoves = [];
+
+  gameStarted = true;
+
+  canvasElement.style.pointerEvents = "auto";
+
+  updateBoard();
+
+};
+
+restartBtn.onclick = () => {
+
+  Module.ccall("initGame");   // 重新初始化C++游戏
+
+  selectedCell = null;        // 清除选中
+  legalMoves = [];
+
+  gameStarted = true;
+
+  updateBoard();              // 重新绘制棋盘
+
+  alert("新的对局开始！");
+};
+
+endBtn.onclick = () => {
+  alert("游戏结束");
+  window.location.reload();   // 直接退出对局
+};
+
+exitBtn.onclick = () => {
+  window.location.href = "about:blank";
+};
+
+    // 鼠标点击棋盘 → 调用 C++ onCellClick(x,y)
+
+canvasElement.addEventListener("click", (e) => {
+
+  if (!gameStarted) return;
+
+  const rect = canvasElement.getBoundingClientRect();
+  const cellSize = rect.width / 8;
+
+  const col = Math.floor((e.clientX - rect.left) / cellSize);
+  const row = Math.floor((e.clientY - rect.top) / cellSize);
+
+  // 调用 C++ 处理点击
+Module.ccall("onCellClick", null, ["number","number"], [row,col]);
+
+// 如果再次点击同一格 → 取消选择
+if(selectedCell && selectedCell.row === row && selectedCell.col === col){
+    selectedCell = null;
+    legalMoves = [];
+}else{
+    selectedCell = {row, col};
+}
+
+  // 获取合法走位
+  const moveStr = Module.ccall(
+      "getLegalMoves",
+      "string",
+      ["number","number"],
+      [row,col]
+  );
+
+  if(moveStr.length > 0){
+      legalMoves = moveStr.split(";").map(p=>{
+          const [r,c] = p.split(",");
+          return {row:parseInt(r),col:parseInt(c)};
+      });
+  } else {
+      legalMoves = [];
+  }
+
+  updateBoard();
+});
+
+// 接受和棋
+acceptDrawBtn.onclick = () => {
+
+  Module.ccall(
+    "setDrawAnswer",
+    null,
+    ["number"],
+    ['y'.charCodeAt(0)]
+  );
+
+  alert("双方同意和棋");
+
+  window.location.reload();   // 直接退出
+};
+
+rejectDrawBtn.onclick = () => {
+
+  Module.ccall(
+    "setDrawAnswer",
+    null,
+    ["number"],
+    ['n'.charCodeAt(0)]
+  );
+
+  alert("继续游戏");
+};
+
+    // 一开始棋盘不能点
+    canvasElement.style.pointerEvents = 'none';
+
+function drawBoard(board){
+
+  const size = canvasElement.width / 8;
+
+  for(let r = 0; r < 8; r++){
+    for(let c = 0; c < 8; c++){
+
+      if((r + c) % 2 === 0)
+        ctx.fillStyle = "#f0d9b5";
+      else
+        ctx.fillStyle = "#b58863";
+
+      ctx.fillRect(c * size, r * size, size, size);
+
+      // 当前选中格子
+      if(selectedCell && selectedCell.row === r && selectedCell.col === c){
+          ctx.strokeStyle = "yellow";
+          ctx.lineWidth = 4;
+          ctx.strokeRect(c * size, r * size, size, size);
+      }
+
+      // 合法走位
+      legalMoves.forEach(m=>{
+        if(m.row === r && m.col === c){
+
+            const piece = board[r*8+c];
+
+            ctx.beginPath();
+            ctx.arc(
+              c*size + size/2,
+              r*size + size/2,
+              size/6,
+              0,
+              Math.PI*2
+            );
+
+            if(piece !== "--")
+                ctx.fillStyle = "red";
+            else
+                ctx.fillStyle = "green";
+
+            ctx.fill();
+        }
+      });
+
+    }
+  }
+}
+
+const pieceMap = {
+  "wP":"♙","wR":"♖","wN":"♘","wB":"♗","wQ":"♕","wK":"♔",
+  "bP":"♟","bR":"♜","bN":"♞","bB":"♝","bQ":"♛","bK":"♚"
+};
+
+function drawPieces(board){
+
+  const size = canvasElement.width / 8;
+
+  ctx.font = "56px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for(let i = 0; i < 64; i++){
+
+    const piece = board[i];
+
+    if(piece === "--") continue;
+
+    const row = Math.floor(i / 8);
+    const col = i % 8;
+
+    ctx.fillStyle = "black";
+
+      ctx.fillText(
+      pieceMap[piece],
+      col * size + size / 2,
+      row * size + size / 2
+    );
+  }
+}
+
+function updateBoard(){
+
+  const boardState = Module.ccall(
+    "getBoardState",
+    "string",
+    [],
+    []
+  );
+
+  const board = boardState.trim().split(" ");
+
+  ctx.clearRect(0,0,canvasElement.width,canvasElement.height);
+
+  drawBoard(board);
+  drawPieces(board);
+}
+Module.onRuntimeInitialized = () => {
+    gameStarted = false;
+    canvasElement.style.pointerEvents = "none";
+};
+
+  </script>
+
+  <script type="text/javascript" src="chess.js"></script>
+
+</body>
+</html>
