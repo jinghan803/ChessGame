@@ -211,28 +211,46 @@ canvasElement.addEventListener("click", (e) => {
   const row = Math.floor((e.clientY - rect.top) / cellSize);
 
   // 调用 C++ 处理点击
-let success = true;
+// 第一次点击：选棋子
+if(!selectedCell){
 
-if(selectedCell){   // 只有第二次点击才检查
-    success = Module.ccall(
-        "onCellClick",
-        "number",
+    selectedCell = {row, col};
+
+    const moveStr = Module.ccall(
+        "getLegalMoves",
+        "string",
         ["number","number"],
         [row,col]
     );
 
-    if(!success){
-        alert("Illegal move!");
-        return;
+    if(moveStr.length > 0){
+        legalMoves = moveStr.split(";").map(p=>{
+            const [r,c] = p.split(",");
+            return {row:parseInt(r),col:parseInt(c)};
+        });
+    }else{
+        legalMoves = [];
     }
-}else{
-    Module.ccall(
-        "onCellClick",
-        null,
-        ["number","number"],
-        [row,col]
-    );
+
+    updateBoard();
+    return;
 }
+
+// 第二次点击：尝试移动
+const success = Module.ccall(
+    "onCellClick",
+    "number",
+    ["number","number"],
+    [row,col]
+);
+
+if(!success){
+    alert("Illegal move!");
+    return;
+}
+
+selectedCell = null;
+legalMoves = [];
 
 updateBoard();
 checkGameEnd();
