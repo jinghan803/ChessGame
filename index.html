@@ -211,7 +211,17 @@ canvasElement.addEventListener("click", (e) => {
   const row = Math.floor((e.clientY - rect.top) / cellSize);
 
   // 调用 C++ 处理点击
-Module.ccall("onCellClick", null, ["number","number"], [row,col]);
+const success = Module.ccall(
+  "onCellClick",
+  "number",
+  ["number","number"],
+  [row,col]
+);
+
+if(!success){
+  alert("Illegal move!");
+  return;
+}
 
 // 如果再次点击同一格 → 取消选择
 if(selectedCell && selectedCell.row === row && selectedCell.col === col){
