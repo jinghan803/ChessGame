@@ -211,16 +211,27 @@ canvasElement.addEventListener("click", (e) => {
   const row = Math.floor((e.clientY - rect.top) / cellSize);
 
   // 调用 C++ 处理点击
-const success = Module.ccall(
-  "onCellClick",
-  "number",
-  ["number","number"],
-  [row,col]
-);
+let success = true;
 
-if(!success){
-  alert("Illegal move!");
-  return;
+if(selectedCell){   // 只有第二次点击才检查
+    success = Module.ccall(
+        "onCellClick",
+        "number",
+        ["number","number"],
+        [row,col]
+    );
+
+    if(!success){
+        alert("Illegal move!");
+        return;
+    }
+}else{
+    Module.ccall(
+        "onCellClick",
+        null,
+        ["number","number"],
+        [row,col]
+    );
 }
 
 updateBoard();
