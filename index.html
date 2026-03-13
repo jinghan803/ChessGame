@@ -102,12 +102,12 @@
 
     <!-- 右边：按钮 1/4 -->
     <div class="control-area">
-      <button class="game-btn" id="startBtn">开始游戏</button>
-      <button class="game-btn" id="restartBtn">重新开始</button>
-      <button class="game-btn" id="endBtn">结束游戏</button>
-      <button class="game-btn" id="exitBtn">退出</button>
-      <button class="game-btn" id="acceptDrawBtn">接受和棋</button>
-      <button class="game-btn" id="rejectDrawBtn">拒绝和棋</button>
+      <button class="game-btn" id="startBtn">开始游戏(start)</button>
+      <button class="game-btn" id="restartBtn">重新开始(restart)</button>
+      <button class="game-btn" id="endBtn">结束游戏(end)</button>
+      <button class="game-btn" id="exitBtn">退出(exit)</button>
+      <button class="game-btn" id="acceptDrawBtn">接受和棋(accept draw)</button>
+      <button class="game-btn" id="rejectDrawBtn">拒绝和棋(reject draw)</button>
     </div>
 
   </div>
@@ -158,7 +158,7 @@ canvasElement.height = size;
 startBtn.onclick = () => {
 
   if(gameStarted){
-      alert("游戏已经开始");
+      alert("游戏已经开始,请先结束当前游戏！(Please end the current game first!)");
       return;
   }
 
@@ -186,11 +186,11 @@ restartBtn.onclick = () => {
 
   updateBoard();              // 重新绘制棋盘
 
-  alert("新的对局开始！");
+  alert("新的对局开始！(A new game has started!)");
 };
 
 endBtn.onclick = () => {
-  alert("游戏结束");
+  alert("游戏结束(Game over!)");
   window.location.reload();   // 直接退出对局
 };
 
@@ -251,7 +251,7 @@ acceptDrawBtn.onclick = () => {
     ['y'.charCodeAt(0)]
   );
 
-  alert("双方同意和棋");
+  alert("双方同意和棋(Draw agreed by both sides)");
 
   window.location.reload();   // 直接退出
 };
@@ -265,7 +265,7 @@ rejectDrawBtn.onclick = () => {
     ['n'.charCodeAt(0)]
   );
 
-  alert("继续游戏");
+  alert("继续游戏(Game continues)");
 };
 
     // 一开始棋盘不能点
